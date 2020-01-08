@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+
+import 'Component/PowerButton.dart';
+import 'Component/TimerInput.dart';
 
 void main() => runApp(MyApp());
 
@@ -27,6 +31,23 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  Color red = Color(0xffFF3743);
+  Color Green = Color(0xff03AB0A);
+  Color ButtonColor = Color(0xffFF3743);
+
+  Color textColor = Color(0xff589DFF);
+  final TextStyle textStyle = TextStyle(
+    color: Color(0xff589DFF),
+    fontWeight: FontWeight.w500,
+    fontSize: 22.0,
+  );
+
+  int cnt = 0;
+  int timeCount = 5;
+  bool InputVisibility = false;
+  bool TimerVisibility = false;
+  bool buttonPress = false;
+
   static const platform = const MethodChannel('samples.flutter.dev/battery');
 
   String _batteryLevel = 'Unknown battery level.';
@@ -71,24 +92,40 @@ class _MyHomePageState extends State<MyHomePage> {
     return false;
   }
 
+  static Future flash(Duration duration) =>
+      turnOn().whenComplete(() => Future.delayed(duration, () => turnOff()));
+
+  Future<String> testDelay(int a) {
+    Future<String> t = Future.delayed(Duration(seconds: 1), () {
+      return '$a';
+    });
+
+    return t;
+  }
+
+  String SENT = '0';
+
+  void Resent(int c) async {
+    for (int i = 1; i <= c; i++) {
+      String s = await testDelay(c - i);
+      var Rsent = s;
+      setState(() {
+        SENT = Rsent;
+      });
+    }
+    print('<=============Timer End ==============>');
+    onButtonPress(false);
+    InputVisibility = true;
+    TimerVisibility = false;
+  }
+
   bool _light = false;
-  String ButtonText = "ON";
   bool hasTorch = false;
-  var _gradient = RadialGradient(
-    center: const Alignment(0, 0), // near the top right
-    radius: 0.5,
-    colors: [
-      const Color(0xFFFFFF00), // yellow sun
-      const Color(0xFF0099FF), // blue sky
-    ],
-    stops: [0.4, 1.0],
-  );
 
   void CleckFlash() async {
     bool _temp = await HasTorch();
     setState(() {
       hasTorch = _temp;
-
       print("hasTorch: " + hasTorch.toString());
     });
   }
@@ -111,55 +148,123 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Widget TorchUI(BuildContext context) {
+    return Container(
+      child: Stack(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: 15.0),
+            child: Container(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  FlatButton(
+                    onPressed: () {
+                      setState(() {
+                        InputVisibility = !InputVisibility;
+                        TimerVisibility = false;
+                      });
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Icon(
+                          Icons.alarm,
+                          color: textColor,
+                        ),
+                        SizedBox(
+                          width: 15.0,
+                        ),
+                        Text(
+                          'Set Timer',
+                          style: textStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 20,
+                  ),
+                  Visibility(
+                    visible: InputVisibility,
+                    child: TimerInpute(
+                      cnt: timeCount,
+                      decrement: () {
+                        setState(() {
+                          timeCount--;
+                        });
+                      },
+                      increment: () {
+                        setState(() {
+                          timeCount++;
+                        });
+                      },
+                      StartTimer: () {
+                        //todo start timer
+                        setState(() {
+                          InputVisibility = false;
+                          SENT = '$timeCount';
+                          TimerVisibility = true;
+                          onButtonPress(true);
+                          Resent(timeCount);
+                        });
+                      },
+                    ),
+                  ),
+                  Visibility(
+                    visible: TimerVisibility,
+                    child: Text(
+                      '$SENT',
+                      style: textStyle.copyWith(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment(0, 0.45),
+            child: PowerButton(
+              color: ButtonColor,
+              onPress: () {
+                buttonPress = !buttonPress;
+                onButtonPress(buttonPress);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void onButtonPress(bool b) {
+    if (b == true) {
+      turnOn();
+      setState(() {
+        ButtonColor = Green;
+      });
+    } else {
+      setState(() {
+        ButtonColor = red;
+      });
+
+      turnOff();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Color(0xff122239),
       body: SafeArea(
-        child: hasTorch
-            ? Container(
-                decoration: BoxDecoration(
-                  gradient: (_light) ? _gradient : null,
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        height: 150,
-                        width: 150,
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(100),
-                            color: Colors.blue),
-                        child: ClipOval(
-                          child: FlatButton(
-                            onPressed: () {
-                              setState(() {
-                                _light = !_light;
-                                if (_light) {
-                                  ButtonText = "OFF";
-                                  //Lantern.turnOn();
-                                  turnOn();
-                                } else {
-                                  ButtonText = "ON";
-                                  //Lantern.turnOff();
-                                  turnOff();
-                                }
-                              });
-                            },
-                            child: Text(
-                              '$ButtonText',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : FailedText(),
+        child: hasTorch ? TorchUI(context) : FailedText(),
       ),
     );
   }
